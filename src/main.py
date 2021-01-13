@@ -2,14 +2,33 @@ import os
 import time
 import pickle
 import logging
+import subprocess
 
-import you_get
 import requests
 import feedparser
 
 
 LOG_FORMAT = "%(levelname)s:%(asctime)s:%(name)s[%(filename)s:%(lineno)s]:%(message)s"
 DATE_FORMAT = "%Y-%m-%d[%H:%M:%S]"
+
+
+class TwitterDownloader:
+
+    def __init__(self, output_dir='./output'):
+        self.output_dir = output_dir
+
+    def __call__(self, url):
+        ret = subprocess.run(f"you-get -d -o {self.output_dir} {url}", shell=True)
+
+
+class BilibiliDownloader:
+
+    def __init__(self, output_dir='./output'):
+        self.output_dir = output_dir
+
+    def __call__(self, url):
+        ret = subprocess.run(f"you-get -d --playlist --no-caption -o {self.output_dir} {url}", shell=True)
+        return ret
 
 
 def get_code(website, path='/', token=''):
@@ -21,7 +40,7 @@ def get_code(website, path='/', token=''):
     return f"{website}{path}?code={code}"
 
 
-def main(url, token):
+def main(url, token, downloader=None):
     if os.path.exists('./data/cache'):
         with open('./data/cache', 'rb') as file:
             all_url = pickle.load(file)
@@ -59,6 +78,8 @@ def main(url, token):
         if link in all_url:
             logging.debug(f"Ignore {link}, because exists")
         logging.info(f"Processing {link}")
+        if downloader:
+            downloader(link)
         all_url.add(entry.link)
 
     with open('./data/cache', 'wb') as file:
@@ -72,4 +93,5 @@ if __name__ == '__main__':
     parser.add_argument('token', type=str)
     args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
-    main(args.url, args.token)
+    downloader = BilibiliDownloader(output_dir='./output/bilibili')
+    main(args.url, args.token, downloader=downloader)

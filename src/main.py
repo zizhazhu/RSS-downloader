@@ -26,8 +26,8 @@ class TwitterDownloader:
 
 class YOUGETDownloader:
 
-    def __init__(self, output_dir='./output', debug=False, caption=True, playlist=False, **kwargs):
-        self.output_dir = output_dir
+    def __init__(self, path='./output', debug=False, caption=True, playlist=False, **kwargs):
+        self.output_dir = path
         self.debug = debug
         self.caption = caption
         self.playlist = playlist

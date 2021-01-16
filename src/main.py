@@ -15,15 +15,6 @@ import log
 import cache
 
 
-class TwitterDownloader:
-
-    def __init__(self, output_dir='./output'):
-        self.output_dir = output_dir
-
-    def __call__(self, url):
-        ret = subprocess.run(f"you-get -d -o {self.output_dir} {url}", shell=True)
-
-
 class YOUGETDownloader:
 
     def __init__(self, path='./output', debug=False, caption=True, playlist=False, **kwargs):
@@ -62,11 +53,23 @@ downloader_mapping = {
 
 class Agent:
 
-    def __init__(self, name, website, downloader, token='', enable=True, **kwargs):
+    def __init__(self, name, website, downloader, token='', max_retry=3, enable=True, **kwargs):
         self.name = name
         self.url = get_code(website, token)
         self.downloader = downloader_mapping[downloader['name']](**downloader)
         self.enable = enable
+        self.max_retry = max_retry
+        self._running = True
+
+    def loop(self, executor=None):
+        while self._running:
+            logging.info(f'Agent {self.name} is working.')
+            self.run(executor)
+            time.sleep(600)
+        logging.info(f'Agent {self.name} is exiting.')
+
+    def exit(self):
+        self._running = False
 
     def run(self, executor=None):
         if not self.enable:
@@ -74,7 +77,7 @@ class Agent:
             return
 
         feed_url = self.url
-        max_reties = 3
+        max_reties = self.max_retry
         retry = 1
         while retry <= max_reties:
             try:
@@ -104,7 +107,7 @@ class Agent:
                     self.downloader(link)
                     CACHE.all_url.add(link)
             else:
-                future_result.put((link, 0, executor.submit(self.downloader, link)))
+                future_result.put((link, 1, executor.submit(self.downloader, link)))
 
         while not future_result.empty():
             link, retry, future = future_result.get()
@@ -117,7 +120,9 @@ class Agent:
                 logging.warning(f"Task {link} retry {retry} get result {result}")
                 if retry < max_reties:
                     logging.info(f"Retry {link}...")
-                    future_result.put((link, retry + 1, executor.submit(self.downloader, link, (retry + 1) * 10)))
+                    future_result.put((link, retry + 1, executor.submit(self.downloader, link, retry * 10)))
+                else:
+                    logging.error(f'Retry {link} {retry} times. All are failed. Please try manually.')
 
 
 def get_code(url, token=''):
@@ -149,6 +154,7 @@ def main():
 
     import json
     agents = []
+    agent_threads = []
     with open(args.config, 'r') as config:
         config = json.load(config)
         for agent_config in config['agents']:
@@ -157,7 +163,18 @@ def main():
     download_executor = ThreadPoolExecutor(max_workers=config.get('thread_num', 5))
 
     for agent in agents:
-        agent.run(download_executor)
+        agent_threads.append(threading.Thread(target=agent.loop, args=(download_executor,)))
+
+    for agent_thread in agent_threads:
+        agent_thread.start()
+
+    while True:
+        cmd = input(">>")
+        if cmd == 'e':
+            break
+
+    for agent in agents:
+        agent.exit()
 
     CACHE.terminate()
     CACHE.dump()

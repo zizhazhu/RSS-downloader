@@ -24,6 +24,7 @@ class Cache:
         while self._running:
             time.sleep(self.interval)
             self.dump()
+        logging.info(f'Cache is done.')
 
     def load(self, path=None):
         if path is None:

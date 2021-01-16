@@ -3,16 +3,14 @@ import time
 import pickle
 import logging
 import subprocess
+import threading
 from urllib.parse import urlparse
 
 import requests
 import feedparser
 
-
-LOG_FORMAT = "%(levelname)s:%(asctime)s:%(name)s[%(filename)s:%(lineno)s]:%(message)s"
-DATE_FORMAT = "%Y-%m-%d[%H:%M:%S]"
-
-all_url = set()
+import log
+import cache
 
 
 class TwitterDownloader:
@@ -47,6 +45,7 @@ class YOUGETDownloader:
         return ret
 
 
+CACHE = cache.Cache()
 downloader_mapping = {
     'you-get': YOUGETDownloader,
 }
@@ -54,12 +53,16 @@ downloader_mapping = {
 
 class Agent:
 
-    def __init__(self, name, website, downloader, token='', **kwargs):
+    def __init__(self, name, website, downloader, token='', enable=True, **kwargs):
         self.name = name
         self.url = get_code(website, token)
         self.downloader = downloader_mapping[downloader['name']](**downloader)
+        self.enable = enable
 
     def run(self):
+        if not self.enable:
+            logging.warning(f"{self.name} enable is {self.enable!s}.")
+            return
         feed_url = self.url
         max_reties = 3
         retry = 1
@@ -83,12 +86,12 @@ class Agent:
 
         for entry in entries:
             link = entry.link
-            if link in all_url:
+            if link in CACHE.all_url:
                 logging.debug(f"Ignore {link}, because exists")
             logging.info(f"Processing {link}")
             if self.downloader:
                 self.downloader(link)
-            all_url.add(entry.link)
+            CACHE.all_url.add(entry.link)
 
 
 def get_code(url, token=''):
@@ -107,16 +110,15 @@ def get_code(url, token=''):
 
 
 def main():
-    global all_url
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='./config/agents.json')
     parser.add_argument('--cache', type=str, default='./data/cache')
     args = parser.parse_args()
 
-    if os.path.exists(args.cache):
-        with open(args.cache, 'rb') as file:
-            all_url = pickle.load(file)
+    CACHE.cache_path = args.cache
+    cache_t = threading.Thread(target=CACHE.run)
+    cache_t.start()
 
     import json
     agents = []
@@ -128,11 +130,10 @@ def main():
     for agent in agents:
         agent.run()
 
-    with open(args.cache, 'wb') as file:
-        pickle.dump(all_url, file)
+    CACHE.terminate()
+    CACHE.dump()
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
     main()
 

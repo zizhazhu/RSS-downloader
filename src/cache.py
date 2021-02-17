@@ -2,7 +2,6 @@ import os
 import time
 import pickle
 
-import log
 import logging
 
 

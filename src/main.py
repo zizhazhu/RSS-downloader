@@ -158,6 +158,7 @@ def main():
     parser.add_argument('--config', type=str, default='./config/agents.json')
     parser.add_argument('--cache', type=str, default='./data/cache')
     parser.add_argument('--log', type=str, default='./data/log.txt')
+    parser.add_argument('-i', '--input', action='store_true')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
@@ -181,19 +182,20 @@ def main():
     for agent_thread in agent_threads:
         agent_thread.start()
 
-    while True:
-        cmd = input(">>")
-        if cmd == 'e':
-            logging.info("Exiting...")
-            break
+    if args.input:
+        while True:
+            cmd = input(">>")
+            if cmd == 'e':
+                logging.info("Exiting...")
+                break
 
-    for agent in agents:
-        agent.exit()
+        for agent in agents:
+            agent.exit()
 
-    CACHE.terminate()
-    CACHE.dump()
+        CACHE.terminate()
+        CACHE.dump()
 
-    logging.info("Waiting all thread done.")
+        logging.info("Waiting all thread done.")
 
 
 if __name__ == '__main__':

@@ -160,11 +160,6 @@ def main():
 
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
-    CACHE.cache_path = args.cache
-    CACHE.load()
-    cache_t = threading.Thread(target=CACHE.run)
-    cache_t.start()
-
     import json
     agents = []
     agent_threads = []
@@ -172,6 +167,11 @@ def main():
         config = json.load(config)
         for agent_config in config['agents']:
             agents.append(Agent(**agent_config))
+
+    CACHE.cache_path = args.cache
+    CACHE.load()
+    cache_t = threading.Thread(target=CACHE.run)
+    cache_t.start()
 
     for agent in agents:
         agent_threads.append(threading.Thread(target=agent.loop))

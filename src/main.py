@@ -196,6 +196,9 @@ def main():
         CACHE.dump()
 
         logging.info("Waiting all thread done.")
+    else:
+        for agent_thread in agent_threads:
+            agent_thread.join()
 
 
 if __name__ == '__main__':

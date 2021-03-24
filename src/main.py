@@ -60,7 +60,8 @@ DATE_FORMAT = "%Y-%m-%d[%H:%M:%S]"
 
 class Agent:
 
-    def __init__(self, name, website, downloader, token='', thread_num=1, max_retry=3, wait_s=0, enable=True, **kwargs):
+    def __init__(self, name, website, downloader, token='', thread_num=1, max_retry=3, wait_s=0, enable=True,
+                 intervals=600, **kwargs):
         self.name = name
         self.url = get_code(website, token)
         self.executor = ThreadPoolExecutor(max_workers=thread_num)
@@ -68,13 +69,14 @@ class Agent:
         self.enable = enable
         self.wait = wait_s
         self.max_retry = max_retry
+        self.intervals = intervals
         self._running = True
 
     def loop(self):
         while self._running:
             logging.info(f'Agent {self.name} is working.')
             self.run()
-            time.sleep(60)
+            time.sleep(self.intervals)
         logging.info(f'Agent {self.name} is exiting.')
 
     def exit(self):
@@ -130,7 +132,7 @@ class Agent:
                 logging.warning(f"Task {link} retry {retry} get result {result}")
                 if retry < max_reties:
                     logging.info(f"Retry {link} ...")
-                    future_result.put((link, retry + 1, self.executor.submit(self.downloader, link, retry * 60)))
+                    future_result.put((link, retry + 1, self.executor.submit(self.downloader, link, retry * self.wait)))
                 else:
                     logging.error(f'Retry {link} {retry} times. All are failed. Please try manually.')
 
